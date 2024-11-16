@@ -15,6 +15,8 @@ import 'earn_screen.dart';
 
 
 File? _profileImage;
+TextEditingController _usernameController = TextEditingController(text: 'NFUNAYO');
+  TextEditingController _emailController = TextEditingController(text: 'user@example.com');
 
 class ExpenseTrackerHome extends StatefulWidget {
   const ExpenseTrackerHome({super.key, required String userId});
@@ -305,6 +307,7 @@ void _openSettings() {
 }
 
 
+
 // Method to save profile changes
 void _saveProfileChanges() {
   
@@ -312,8 +315,18 @@ void _saveProfileChanges() {
 
 logger.i('Profile changes saved successfully.');
   
-  // Close the dialog after saving
-  Navigator.pop(context);
+  // Here, you would implement saving logic (e.g., updating Firebase, local storage, etc.)
+    String updatedUsername = _usernameController.text;
+    String updatedEmail = _emailController.text;
+
+    // For demonstration purposes, print the updated values
+    // ignore: avoid_print
+    print("Updated Username: $updatedUsername");
+    // ignore: avoid_print
+    print("Updated Email: $updatedEmail");
+
+    // After saving, close the dialog
+    Navigator.pop(context);
 }
 Future<void> _pickImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -325,81 +338,66 @@ Future<void> _pickImage() async {
     }
   }
 
-void _showUserProfile() {
-  final TextEditingController usernameController = TextEditingController(text: _username); // Fetch the real username
-  final TextEditingController emailController = TextEditingController(text: _email);  // Fetch the real email
-  
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      title: const Text('Profile Details'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            alignment: Alignment.bottomRight,
+ // Show the profile dialog
+  void _showUserProfile() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text('Profile Details'),
+        content: SingleChildScrollView( // Allows the content to scroll if it's too long
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundImage: _profileImage != null
-                    ? FileImage(_profileImage!) // Display the picked image if available
-                    : _profileImageUrl != null
-                        ? NetworkImage(_profileImageUrl!) // Display the image from network (URL)
-                        : const AssetImage('assets/images/log.png') as ImageProvider, // Default image if no picture is selected
-                backgroundColor: Colors.blue[100],
+              Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundImage: _profileImage != null
+                        ? FileImage(_profileImage!)
+                        : const AssetImage('assets/images/log.png') as ImageProvider,
+                    backgroundColor: Colors.blue[100],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.camera_alt, color: Colors.blue),
+                    onPressed: _pickImage,  // Trigger the image picker
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.camera_alt, color: Colors.blue),
-                onPressed: _pickImage, // Function to pick image from gallery or camera
+              const SizedBox(height: 20),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  border: OutlineInputBorder(),
+                ),
+                controller: _usernameController,  // Bind to the username controller
               ),
+              const SizedBox(height: 10),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                controller: _emailController,  // Bind to the email controller
+              ),
+              const SizedBox(height: 10),
             ],
           ),
-          const SizedBox(height: 20),
-          TextField(
-            decoration: const InputDecoration(
-              labelText: 'Username',
-              border: OutlineInputBorder(),
-            ),
-            controller: usernameController, // Bind the username controller here
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),  // Close the dialog
+            child: const Text('Close'),
           ),
-          const SizedBox(height: 10),
-          TextField(
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              border: OutlineInputBorder(),
-            ),
-            controller: emailController, // Bind the email controller here
+          ElevatedButton(
+            onPressed: _saveProfileChanges,  // Save profile changes
+            child: const Text('Save'),
           ),
-          const SizedBox(height: 10),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            // Handle saving profile changes
-            _saveProfileChanges(usernameController.text, emailController.text); // Save the updated profile
-          },
-          child: const Text('Save'),
-        ),
-      ],
-    ),
-  );
-}
-
-// Save the profile changes (update username and email, and upload the image if changed)
-void _saveProfileChanges(String username, String email) {
-  setState(() {
-    _username = username;
-    _email = email;
-    // Optionally save the updated profile details to a local storage or cloud service
-  });
-  Navigator.pop(context);  // Close the profile dialog after saving the changes
-}
+    );
+  }
 
 
 

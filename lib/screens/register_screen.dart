@@ -1,5 +1,8 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:nfunayo/screens/home_screen.dart'; // Ensure HomeScreen is defined
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,9 +35,15 @@ class RegisterScreenState extends State<RegisterScreen> {
           password: _passwordController.text.trim(),
         );
 
+        // Save user data to Firestore
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          'email': userCredential.user!.email,
+          'userId': userCredential.user!.uid,
+          // You can add more user info here, like name, etc.
+        });
+
         // Send email verification
         await userCredential.user!.sendEmailVerification();
-        // ignore: avoid_print
         print("Email verification sent to: ${userCredential.user!.email}");
 
         // Save user info locally
@@ -42,8 +51,6 @@ class RegisterScreenState extends State<RegisterScreen> {
         await prefs.setBool('isLoggedIn', true);
         await prefs.setString('userId', userCredential.user!.uid);
 
-        // Debug: Check userCredential
-        // ignore: avoid_print
         print("User registered with UID: ${userCredential.user!.uid}");
 
         // Navigate to home screen after registration and email verification
@@ -52,8 +59,6 @@ class RegisterScreenState extends State<RegisterScreen> {
             _isLoading = false;
           });
 
-          // Debug: Check if navigation occurs
-          // ignore: avoid_print
           print("Navigating to Home Screen");
 
           Navigator.pushReplacement(
@@ -64,7 +69,6 @@ class RegisterScreenState extends State<RegisterScreen> {
           );
         }
       } on FirebaseAuthException catch (e) {
-        // Handle errors
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.message ?? 'Registration failed')),
