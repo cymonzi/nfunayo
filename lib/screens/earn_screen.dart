@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
-class BudgetingScreen extends StatelessWidget {
-  const BudgetingScreen({super.key});
+class EarnScreen extends StatelessWidget {
+  const EarnScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Budgeting'),
+        title: const Text('Earn'),
         backgroundColor: Colors.blue,
       ),
       body: const Center(
         child: Text(
-          'Budgeting Page Content Here',
+          'Earn Content Here',
           style: TextStyle(fontSize: 24),
         ),
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:nfunayo/screens/budgeting_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'login_screen.dart';
@@ -7,11 +8,16 @@ import 'settings_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:logger/logger.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'statistics_screen.dart';  
+import 'buy_screen.dart';  
+import 'earn_screen.dart';
+
 
 File? _profileImage;
 
 class ExpenseTrackerHome extends StatefulWidget {
-  const ExpenseTrackerHome({super.key});
+  const ExpenseTrackerHome({super.key, required String userId});
 
   @override
   ExpenseTrackerHomeState createState() => ExpenseTrackerHomeState();
@@ -19,6 +25,43 @@ class ExpenseTrackerHome extends StatefulWidget {
 
 class ExpenseTrackerHomeState extends State<ExpenseTrackerHome> {
   int _selectedIndex = 0;
+
+// ignore: unused_element
+void _onItemTapped(int index) {
+  setState(() {
+    _selectedIndex = index;
+  });
+
+  // Handle navigation based on the selected index
+  switch (index) {
+    case 0:
+      // Navigate to Home Screen
+      Navigator.push(context, MaterialPageRoute(builder: (context) =>  const ExpenseTrackerHome(userId: '',)));
+      break;
+    case 1:
+      // Navigate to Statistics Screen
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const StatisticsScreen()));
+      break;
+    case 2:
+      // Navigate to Buy Screen
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const BuyScreen()));
+      break;
+    case 3:
+      // Navigate to Earn Screen
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const EarnScreen()));
+      break;
+    // case 4:
+    //   // Navigate to History Screen
+    //   Navigator.push(context, MaterialPageRoute(builder: (context) => _buildTransactionHistory(),
+    //   ),);
+    //   break;
+    default:
+      break;
+  }
+}
+
+
+
   double _balance = 0;
   double _income = 0;
   double _expenses = 0;
@@ -104,11 +147,6 @@ void dispose() {
     );
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
   void _showAddTransactionBottomSheet() {
      descriptionController.clear();
@@ -288,6 +326,9 @@ Future<void> _pickImage() async {
   }
 
 void _showUserProfile() {
+  final TextEditingController usernameController = TextEditingController(text: _username); // Fetch the real username
+  final TextEditingController emailController = TextEditingController(text: _email);  // Fetch the real email
+  
   showDialog(
     context: context,
     builder: (_) => AlertDialog(
@@ -302,13 +343,15 @@ void _showUserProfile() {
               CircleAvatar(
                 radius: 40,
                 backgroundImage: _profileImage != null
-                    ? FileImage(_profileImage!)
-                    : const AssetImage('assets/images/log.png') as ImageProvider,
+                    ? FileImage(_profileImage!) // Display the picked image if available
+                    : _profileImageUrl != null
+                        ? NetworkImage(_profileImageUrl!) // Display the image from network (URL)
+                        : const AssetImage('assets/images/log.png') as ImageProvider, // Default image if no picture is selected
                 backgroundColor: Colors.blue[100],
               ),
               IconButton(
                 icon: const Icon(Icons.camera_alt, color: Colors.blue),
-                onPressed: _pickImage,
+                onPressed: _pickImage, // Function to pick image from gallery or camera
               ),
             ],
           ),
@@ -318,7 +361,7 @@ void _showUserProfile() {
               labelText: 'Username',
               border: OutlineInputBorder(),
             ),
-            controller: TextEditingController(text: 'NFUNAYO'),  // Add controller for real data
+            controller: usernameController, // Bind the username controller here
           ),
           const SizedBox(height: 10),
           TextField(
@@ -326,24 +369,9 @@ void _showUserProfile() {
               labelText: 'Email',
               border: OutlineInputBorder(),
             ),
-            controller: TextEditingController(text: 'user@example.com'), // Add controller for real data
+            controller: emailController, // Bind the email controller here
           ),
           const SizedBox(height: 10),
-          // Row(
-          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //   children: [
-          //     ElevatedButton.icon(
-          //       icon: const Icon(Icons.logout),
-          //       label: const Text('Logout'),
-          //       onPressed: _showLogout,  // Define logout function
-          //     ),
-          //     ElevatedButton.icon(
-          //       icon: const Icon(Icons.settings),
-          //       label: const Text('Settings'),
-          //       onPressed: _openSettings,  // Define openSettings function
-          //     ),
-          //   ],
-          // ),
         ],
       ),
       actions: [
@@ -352,7 +380,10 @@ void _showUserProfile() {
           child: const Text('Close'),
         ),
         ElevatedButton(
-          onPressed: _saveProfileChanges,  // Define saveProfileChanges function
+          onPressed: () {
+            // Handle saving profile changes
+            _saveProfileChanges(usernameController.text, emailController.text); // Save the updated profile
+          },
           child: const Text('Save'),
         ),
       ],
@@ -360,13 +391,24 @@ void _showUserProfile() {
   );
 }
 
+// Save the profile changes (update username and email, and upload the image if changed)
+void _saveProfileChanges(String username, String email) {
+  setState(() {
+    _username = username;
+    _email = email;
+    // Optionally save the updated profile details to a local storage or cloud service
+  });
+  Navigator.pop(context);  // Close the profile dialog after saving the changes
+}
+
+
 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transactions'),
+        title: const Text('Make Every Penny Count'),
         backgroundColor: Colors.blue,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _confirmClearTransactions),
@@ -374,62 +416,93 @@ void _showUserProfile() {
         ],
       ),
       drawer: _buildDrawer(),
-      body: _selectedIndex == 0 ? _buildEnhancedHomeScreen() : _buildTransactionHistory(),
+      body: _selectedIndex == 0    ? _buildEnhancedHomeScreen()
+    : _selectedIndex == 1
+        ? _buildStatisticsScreen()
+        : _selectedIndex == 2
+            ? _buildBuyScreen()
+            : _selectedIndex == 3
+                ? _buildEarnScreen()
+                : SizedBox.shrink(),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddTransactionBottomSheet,
         backgroundColor: Colors.blue,
         child: const Icon(Icons.add),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home, color: Colors.blue), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.analytics, color: Colors.blue), label: 'Statistics'),
-          BottomNavigationBarItem (icon: Icon(Icons.shopping_cart, color: Colors.blue),
-      label: 'Buy'),
-          BottomNavigationBarItem(icon: Icon(Icons.group_add, color: Colors.blue), label: 'Earn'),  
-          BottomNavigationBarItem(icon: Icon(Icons.history, color: Colors.blue), label: 'History'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue[800],
-        onTap: _onItemTapped,
-      ),
+
+bottomNavigationBar: BottomNavigationBar(
+  items: const [
+    BottomNavigationBarItem(
+      icon: Icon(Icons.home, color: Colors.blue),
+      label: 'Home',
+      tooltip: 'Home',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.analytics, color: Colors.blue),
+      label: 'Statistics',
+      tooltip: 'Statistics',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.shopping_cart, color: Colors.blue),
+      label: 'Buy',
+      tooltip: 'Buy',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.group_add, color: Colors.blue),
+      label: 'Earn',
+      tooltip: 'Earn',
+    ),
+  ],
+  currentIndex: _selectedIndex,
+  onTap: (index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  },
+  selectedItemColor: Colors.blue, // Keep selected item color as blue
+  unselectedItemColor: Colors.black, // Set unselected item color to black
+  showUnselectedLabels: true, // Ensure unselected labels are visible
+  type: BottomNavigationBarType.fixed, // Keeps all items on the bottom nav bar visible
+
+),
+
     );
   }
 
-Widget _buildDrawer() {
-  return Drawer(
-    child: Column(
-      children: [
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              _buildProfileSection(),
-              const Divider(),
-              _buildSectionHeader('Features'),
-              
-              // Drawer items
-              _buildDrawerItem(Icons.account_balance_wallet, 'Expenses', () {
-                Navigator.pop(context);
-              }),
-              _buildDrawerItem(Icons.bar_chart, 'Budgeting Tools', _showBudgetingTools),
-              _buildDrawerItem(Icons.savings, 'Save', _showSave),
-              _buildDrawerItem(Icons.trending_up, 'Invest', _showInvest),
-              const Divider(),
-              _buildDrawerItem(Icons.support_agent, 'Help', _showHelp),
-              _buildDrawerItem(Icons.settings , 'Settings', _openSettings),
-              _buildDrawerItem(Icons.exit_to_app, 'Log Out', _showLogout),
-              
 
-            ],
+Widget _buildDrawer() {
+  return SafeArea(  // Ensures the Drawer does not overlap the status bar
+    child: Drawer(
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),  // Removes the curved border
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildProfileSection(),
+                const Divider(),
+                _buildSectionHeader('Features'),
+
+                // Drawer items
+                _buildDrawerItem(Icons.account_balance_wallet, 'Expenses', () {
+                  Navigator.pop(context);
+                }),
+                _buildDrawerItem(Icons.bar_chart, 'Budgeting Tools', _showBudgetingTools),
+                _buildDrawerItem(Icons.savings, 'Save', _showSave),
+                _buildDrawerItem(Icons.trending_up, 'Invest', _showInvest),
+                const Divider(),
+                _buildDrawerItem(Icons.support_agent, 'Help', _showHelp),
+                _buildDrawerItem(Icons.settings , 'Settings', _openSettings),
+                _buildDrawerItem(Icons.exit_to_app, 'Log Out', _showLogout),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }
-
-
 
  Widget _buildProfileSection() {
     return const DrawerHeader(
@@ -497,55 +570,156 @@ Widget _buildDrawer() {
       ],
     );
   }
+Widget _buildTransactionList() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // Heading
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        child: Text(
+          'For This Month',
+          style: TextStyle(
+            fontSize: 18.0,
+            fontWeight: FontWeight.bold,
+             color: Colors.blue
+          ),
+        ),
+      ),
+      // Transaction List
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _transactions.length,
+        itemBuilder: (context, index) {
+          final transaction = _transactions[index];
+          final color = transaction['type'] == 'Income' ? Colors.green : Colors.red;
 
-  Widget _buildTransactionList() {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _transactions.length,
-      itemBuilder: (context, index) {
-        final transaction = _transactions[index];
-        final color = transaction['type'] == 'Income' ? Colors.green : Colors.red;
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            elevation: 2.0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+              leading: Icon(
+                transaction['type'] == 'Income' ? Icons.arrow_upward : Icons.arrow_downward,
+                color: color,
+              ),
+              title: Text(
+                transaction['description'],
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                '${transaction['category']} - ${transaction['date']}',
+                style: const TextStyle(color: Colors.grey),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'UGX ${transaction['amount'].toStringAsFixed(2)}',
+                    style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8.0),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Color.fromARGB(255, 51, 48, 48)),
+                    onPressed: () {
+                      _confirmDeleteTransaction(context, index);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ],
+  );
+}
 
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-          leading: Icon(
-            transaction['type'] == 'Income' ? Icons.arrow_upward : Icons.arrow_downward,
-            color: color,
+// Function to confirm the deletion
+void _confirmDeleteTransaction(BuildContext context, int index) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Delete Transaction'),
+        content: const Text('Are you sure you want to delete this transaction?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close the dialog without deleting
+            },
+            child: const Text('Cancel'),
           ),
-          title: Text(
-            transaction['description'],
-            style: const TextStyle(fontWeight: FontWeight.bold),
+          TextButton(
+            onPressed: () {
+              _deleteTransaction(index); // Delete the transaction
+              Navigator.of(context).pop(); // Close the dialog
+            },
+            child: const Text('Delete'),
           ),
-          subtitle: Text(
-            '${transaction['category']} - ${transaction['date']}',
-            style: const TextStyle(color: Colors.grey),
-          ),
-          trailing: Text(
-            'UGX ${transaction['amount'].toStringAsFixed(2)}',
-            style: TextStyle(color: color, fontWeight: FontWeight.bold),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTransactionHistory() {
-     return ListView.builder(
-    itemCount: _transactions.length,
-    itemBuilder: (context, index) {
-      final transaction = _transactions[index];
-      return ListTile(
-        title: Text(transaction['description']),
-        subtitle: Text('${transaction['category']} - ${transaction['date']}'),
-        trailing: Text('${transaction['type'] == 'Income' ? '+' : '-'} UGX ${transaction['amount'].toStringAsFixed(2)}'),
-        onTap: () => _showEditTransaction(transaction),
+        ],
       );
     },
   );
+}
 
-
+  // Function to handle editing a transaction (optional)
+  // ignore: unused_element
+  void _showEditTransaction(Map<String, dynamic> transaction) {
+    // Implement editing functionality if needed
   }
+
+// Function to delete a transaction
+void _deleteTransaction(int index) {
+  setState(() {
+    _transactions.removeAt(index); // Remove the transaction at the given index
+  });
+}
+
+
+
+
+//  Widget _buildTransactionHistory() {
+//   return ListView.builder(
+//     itemCount: _transactions.length,
+//     padding: const EdgeInsets.all(8.0),
+//     itemBuilder: (context, index) {
+//       final transaction = _transactions[index];
+//       final isIncome = transaction['type'] == 'Income';
+//       final color = isIncome ? Colors.green : Colors.red;
+//       final icon = isIncome ? Icons.arrow_upward : Icons.arrow_downward;
+
+//       return Card(
+//         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+//         elevation: 3.0,
+//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+//         child: ListTile(
+//           contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+//           leading: CircleAvatar(
+//             backgroundColor: color.withOpacity(0.2),
+//             child: Icon(icon, color: color),
+//           ),
+//           title: Text(
+//             transaction['description'],
+//             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16.0),
+//           ),
+//           subtitle: Text(
+//             '${transaction['category']} - ${transaction['date']}',
+//             style: const TextStyle(color: Colors.grey, fontSize: 14.0),
+//           ),
+//           trailing: Text(
+//             '${isIncome ? '+' : '-'} UGX ${transaction['amount'].toStringAsFixed(2)}',
+//             style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16.0),
+//           ),
+//           onTap: () => _showEditTransaction(transaction),
+//         ),
+//       );
+//     },
+//   );
+// }
+
 
   Widget _buildDrawerItem(IconData icon, String title, void Function()? onTap) {
     return ListTile(
@@ -566,9 +740,11 @@ Widget _buildDrawer() {
   }
 
   void _showBudgetingTools() {
-   Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Budegeting Tools section coming soon!")));
-  }
+    Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => const BudgetingScreen()),
+    );
+    }
 
   void _showSave() {
     Navigator.pop(context);
@@ -681,6 +857,207 @@ void _showLogout() {
   );
 }
 
-  _showEditTransaction(Map<String, dynamic> transaction) {}
+
+  
+  _buildBuyScreen() {}
+  
+  _buildEarnScreen() {}
+
+Widget _buildStatisticsScreen() {
+  // Calculate statistics dynamically
+  final totalTransactions = _transactions.length;
+  final totalIncome = _transactions
+      .where((tx) => tx['type'] == 'Income')
+      .fold(0.0, (sum, tx) => sum + tx['amount']);
+  final totalExpenses = _transactions
+      .where((tx) => tx['type'] == 'Expense')
+      .fold(0.0, (sum, tx) => sum + tx['amount']);
+
+  // Group expenses by category for the pie chart
+  final Map<String, double> categoryBreakdown = {};
+  for (var transaction in _transactions) {
+    if (transaction['type'] == 'Expense') {
+      final category = transaction['category'];
+      categoryBreakdown[category] =
+          (categoryBreakdown[category] ?? 0) + transaction['amount'];
+    }
+  }
+
+  return SingleChildScrollView(
+    padding: const EdgeInsets.all(16.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title
+        const Text(
+          'Statistics This Week',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Total Transactions
+        _buildStatCard('Total Transactions', '$totalTransactions',
+            Icons.receipt_long, Colors.blue),
+
+        // Total Expenses
+        _buildStatCard('Total Expenses', '\$${totalExpenses.toStringAsFixed(2)}',
+            Icons.attach_money, Colors.red),
+
+        // Total Income
+        _buildStatCard('Total Income', '\$${totalIncome.toStringAsFixed(2)}',
+            Icons.account_balance_wallet, Colors.green),
+
+        // Spending Trend Chart (Line Chart)
+        const SizedBox(height: 20),
+        const Text(
+          'Spending Trend',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: 250,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16.0),
+            color: Colors.blue.withOpacity(0.1),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: LineChart(
+              LineChartData(
+                borderData: FlBorderData(show: false),
+                gridData: FlGridData(show: true),
+                titlesData: FlTitlesData(show: true),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: _generateTrendData(), // Function to create FlSpot list
+                    isCurved: true,
+                    color: Colors.blue,
+                    barWidth: 4,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Expense Breakdown by Category
+        const Text(
+          'Expense Breakdown by Category',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 250,
+          child: PieChart(
+            PieChartData(
+              sections: categoryBreakdown.entries
+                  .map((entry) => PieChartSectionData(
+                        color: _getCategoryColor(entry.key),
+                        value: entry.value,
+                        title: entry.key,
+                        radius: 50,
+                        titleStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
+                      ))
+                  .toList(),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// Helper to generate spending trend data for the chart
+List<FlSpot> _generateTrendData() {
+  // Group transactions by day of the week
+  final Map<int, double> weeklySpending = {};
+  for (var transaction in _transactions) {
+    if (transaction['type'] == 'Expense') {
+      final day = DateTime.parse(transaction['date']).weekday;
+      weeklySpending[day] =
+          (weeklySpending[day] ?? 0) + transaction['amount'];
+    }
+  }
+
+  // Generate FlSpot list for the line chart
+  return List.generate(
+      7,
+      (index) => FlSpot(index.toDouble(),
+          weeklySpending[index + 1]?.toDouble() ?? 0));
+}
+
+// Helper to assign colors to categories
+Color _getCategoryColor(String category) {
+  switch (category) {
+    case 'Food':
+      return Colors.red;
+    case 'Rent':
+      return Colors.green;
+    case 'Transport':
+      return Colors.blue;
+    case 'Other':
+      return Colors.yellow;
+    default:
+      return Colors.grey;
+  }
+}
+
+// Reusable Stat Card Widget
+Widget _buildStatCard(String title, String value, IconData icon, Color iconColor) {
+  return Card(
+    elevation: 5,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12.0),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: iconColor,
+            size: 40,
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+
+
+
+  
 }
   

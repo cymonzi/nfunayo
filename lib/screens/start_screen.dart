@@ -1,14 +1,17 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:nfunayo/screens/login_screen.dart'; // Import LoginScreen
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nfunayo/screens/home_screen.dart';
+import 'package:nfunayo/screens/login_screen.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
 
   @override
-  StartScreenState createState() => StartScreenState();
+  State<StartScreen> createState() => _StartScreenState();
 }
 
-class StartScreenState extends State<StartScreen> with SingleTickerProviderStateMixin {
+class _StartScreenState extends State<StartScreen> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _animation;
 
@@ -16,7 +19,6 @@ class StartScreenState extends State<StartScreen> with SingleTickerProviderState
   void initState() {
     super.initState();
 
-    // Set up an animation for the logo to scale in and out
     _controller = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
@@ -26,12 +28,17 @@ class StartScreenState extends State<StartScreen> with SingleTickerProviderState
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
-    // Delay to simulate a loading screen, then navigate to LoginScreen
-    Future.delayed(const Duration(seconds: 5), () {
+    Future.delayed(const Duration(seconds: 5), () async {
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()), // Navigate to LoginScreen
+          MaterialPageRoute(
+            builder: (context) =>
+                isLoggedIn ? ExpenseTrackerHome(userId: prefs.getString('userId')!) : const LoginScreen(),
+          ),
         );
       }
     });
@@ -46,37 +53,31 @@ class StartScreenState extends State<StartScreen> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blue, // Set background color
+      backgroundColor: Colors.blue,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Animated logo with scaling effect
             ScaleTransition(
               scale: _animation,
               child: Image.asset(
-                'assets/images/log.png', // Path to logo image
-                width: 250, // Adjusted size
+                'assets/images/log.png',
+                width: 250,
                 height: 250,
               ),
             ),
             const SizedBox(height: 40),
-            // Loading indicator with a message
-           const Column(
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-                 SizedBox(height: 20),
-                 Text(
-                  'NFUNAYO',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'NFUNAYO',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),

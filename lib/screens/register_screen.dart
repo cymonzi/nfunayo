@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // Ensure HomeScreen is defined in this file
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:nfunayo/screens/home_screen.dart'; // Ensure HomeScreen is defined
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,27 +16,63 @@ class RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _confirmPasswordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _obscurePassword = true; // For password visibility toggle
+  bool _obscureConfirmPassword = true; // For confirm password visibility toggle
 
-  void _register() async {
+  Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
 
-      // Simulate a delay for registration functionality (replace with actual registration logic)
-      await Future.delayed(const Duration(seconds: 2));
+      try {
+        // Register user with Firebase
+        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
 
-      if (mounted) {
-        // Handle successful registration
+        // Send email verification
+        await userCredential.user!.sendEmailVerification();
+        // ignore: avoid_print
+        print("Email verification sent to: ${userCredential.user!.email}");
+
+        // Save user info locally
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('userId', userCredential.user!.uid);
+
+        // Debug: Check userCredential
+        // ignore: avoid_print
+        print("User registered with UID: ${userCredential.user!.uid}");
+
+        // Navigate to home screen after registration and email verification
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+
+          // Debug: Check if navigation occurs
+          // ignore: avoid_print
+          print("Navigating to Home Screen");
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ExpenseTrackerHome(userId: userCredential.user!.uid),
+            ),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        // Handle errors
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Registration failed')),
+        );
+      } finally {
         setState(() {
           _isLoading = false;
         });
-
-        // Navigate to the home screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ExpenseTrackerHome()), // Ensure HomeScreen is defined
-        );
       }
     }
   }
@@ -47,7 +85,7 @@ class RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: Colors.blue,
       ),
       body: Center(
-        child: Padding(
+        child: SingleChildScrollView( // Ensures scrolling works on smaller screens
           padding: const EdgeInsets.all(16.0),
           child: Card(
             elevation: 8,
@@ -70,6 +108,7 @@ class RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    // Email Input
                     TextFormField(
                       controller: _emailController,
                       decoration: const InputDecoration(
@@ -90,16 +129,27 @@ class RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 10),
+                    // Password Input
                     TextFormField(
                       controller: _passwordController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Password',
-                        border: OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
+                        border: const OutlineInputBorder(),
+                        focusedBorder: const OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.blue, width: 2.0),
                         ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                       ),
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your password';
@@ -108,16 +158,27 @@ class RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 10),
+                    // Confirm Password Input
                     TextFormField(
                       controller: _confirmPasswordController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Confirm Password',
-                        border: OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
+                        border: const OutlineInputBorder(),
+                        focusedBorder: const OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.blue, width: 2.0),
                         ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscureConfirmPassword = !_obscureConfirmPassword;
+                            });
+                          },
+                        ),
                       ),
-                      obscureText: true,
+                      obscureText: _obscureConfirmPassword,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please confirm your password';
@@ -129,6 +190,7 @@ class RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
+                    // Loading Indicator or Register Button
                     _isLoading
                         ? const CircularProgressIndicator()
                         : ElevatedButton(
@@ -142,6 +204,7 @@ class RegisterScreenState extends State<RegisterScreen> {
                             child: const Text('Register'),
                           ),
                     const SizedBox(height: 10),
+                    // Link to Login Screen
                     TextButton(
                       onPressed: () {
                         Navigator.pop(context); // Go back to login screen
