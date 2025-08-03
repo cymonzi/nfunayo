@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "name": "Salary",
+    "type": "Income"
+  },
+  {
+    "id": 2,
+    "name": "Rent",
+    "type": "Expense"
+  },
+  {
+    "id": 3,
+    "name": "Food",
+    "type": "Expense"
+  },
+  {
+    "id": 4,
+    "name": "Transport",
+    "type": "Expense"
+  },
+  {
+    "id": 5,
+    "name": "Entertainment",
+    "type": "Expense"
+  },
+  {
+    "id": 6,
+    "name": "Utilities",
+    "type": "Expense"
+  },
+  {
+    "id": 7,
+    "name": "Healthcare",
+    "type": "Expense"
+  },
+  {
+    "id": 8,
+    "name": "Other",
+    "type": "Expense"
+  }
+]

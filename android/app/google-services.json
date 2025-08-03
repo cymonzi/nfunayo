@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "369483233346",
+    "project_id": "nfunayo-d5b57",
+    "storage_bucket": "nfunayo-d5b57.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:369483233346:android:9c4d42a2c24c1194cfd5db",
+        "android_client_info": {
+          "package_name": "com.smkmoneykind.nfunayo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "369483233346-ghf08gt51h6l61fed533rsp1005s075g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.smkmoneykind.nfunayo",
+            "certificate_hash": "2ce6e1131bb5ad6b3489925b6b3a41c07151139b"
+          }
+        },
+        {
+          "client_id": "369483233346-up1f5m6eogf8kol3dm3h0m880v69nkvb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCIFbplPC2KOMsKGlrtAMA9_FSFxVIQvU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "369483233346-up1f5m6eogf8kol3dm3h0m880v69nkvb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
