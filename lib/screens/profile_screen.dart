@@ -7,7 +7,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../widgets/profile_cards.dart';
 import '../widgets/profile_details.dart';
 import '../widgets/preferences_card.dart';
-import '../utils/error_handler.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String userName;
@@ -20,8 +19,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _currentUserName = '';
-  String _currentUserEmail = '';
+  String _phoneNumber = '';
   File? _customImage; // Store the selected image (mobile)
   String? _avatarUrl; // Store the avatar download URL
   bool _isLoading = false;
@@ -40,35 +38,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadUserDetails() async {
     setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
-    
-    // Load user info from SharedPreferences (from registration/login)
-    final storedUserName = prefs.getString('userName') ?? '';
-    final storedUserEmail = prefs.getString('userEmail') ?? '';
-    
     setState(() {
-      // Use stored user info if available, otherwise fall back to widget values
-      _currentUserName = storedUserName.isNotEmpty ? storedUserName : widget.userName;
-      _currentUserEmail = storedUserEmail.isNotEmpty ? storedUserEmail : widget.userEmail;
-      
+      _phoneNumber = prefs.getString('phoneNumber') ?? 'Phone not set';
       final customImagePath = prefs.getString('customImagePath');
       if (customImagePath != null) {
         _customImage = File(customImagePath);
       }
       // Load avatar URL if exists
-      _avatarUrl = prefs.getString('avatarUrl') ?? prefs.getString('userAvatar');
-      _nameController.text = _currentUserName;
-      
-      // Load preferences
+      _avatarUrl = prefs.getString('avatarUrl');
+      _nameController.text = prefs.getString('username') ?? widget.userName;
+// Load user points
       _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
       _selectedCurrency = prefs.getString('selectedCurrency') ?? 'USD';
       _selectedLanguage = prefs.getString('selectedLanguage') ?? 'English';
       _isLoading = false;
     });
-    
-    debugPrint('Loaded user details:');
-    debugPrint('Name: $_currentUserName');
-    debugPrint('Email: $_currentUserEmail');
-    debugPrint('Avatar URL: $_avatarUrl');
   }
 
   void _pickImage(dynamic imageData) async {
@@ -131,139 +115,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _editProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    final nameController = TextEditingController(text: _currentUserName);
-    final emailController = TextEditingController(text: _currentUserEmail);
-    final formKey = GlobalKey<FormState>();
+    final phoneController = TextEditingController(text: _phoneNumber);
 
     try {
       await showDialog(
         // ignore: use_build_context_synchronously
         context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(Icons.edit, color: Colors.blue),
-              const SizedBox(width: 8),
-              const Text('Edit Profile'),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Edit Profile'),
+              content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(Icons.person, color: Colors.blue),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.blue, width: 2),
-                      ),
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      prefixIcon: Icon(Icons.person),
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Name cannot be empty';
-                      }
-                      if (value.trim().length < 2) {
-                        return 'Name must be at least 2 characters';
-                      }
-                      return null;
-                    },
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email, color: Colors.blue),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.blue, width: 2),
-                      ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: phoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number',
+                      prefixIcon: Icon(Icons.phone),
                     ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Email cannot be empty';
-                      }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                        return 'Enter a valid email address';
-                      }
-                      return null;
-                    },
+                    keyboardType: TextInputType.phone,
                   ),
                 ],
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
                 ),
-              ),
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  final newName = nameController.text.trim();
-                  final newEmail = emailController.text.trim();
+                ElevatedButton(
+                  onPressed: () async {
+                    final newName = _nameController.text.trim();
+                    final newPhoneNumber = phoneController.text.trim();
 
-                  try {
-                    // Save to SharedPreferences
-                    await prefs.setString('userName', newName);
-                    await prefs.setString('userEmail', newEmail);
+                    if (newName.isEmpty) {
+                      _showMessage('Name cannot be empty');
+                      return;
+                    }
+
+                    if (newPhoneNumber.isEmpty) {
+                      _showMessage('Phone number cannot be empty');
+                      return;
+                    }
+
+                    if (!RegExp(r'^\d{10,}$').hasMatch(newPhoneNumber)) {
+                      _showMessage('Enter a valid phone number');
+                      return;
+                    }
+
+                    await prefs.setString('username', newName);
+                    await prefs.setString('phoneNumber', newPhoneNumber);
 
                     setState(() {
-                      _currentUserName = newName;
-                      _currentUserEmail = newEmail;
+                      _nameController.text = newName;
+                      _phoneNumber = newPhoneNumber;
                     });
-                    
+
                     // ignore: use_build_context_synchronously
                     Navigator.of(context).pop();
-                    _showMessage('Profile updated successfully!', isSuccess: true);
-                  } catch (e) {
-                    _showMessage('Failed to update profile: ${e.toString()}', isError: true);
-                  }
-                }
-              },
-              child: const Text('Save Changes'),
+                    _showMessage('Profile updated successfully!');
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
             ),
-          ],
-        ),
       );
     } finally {
-      // Dispose controllers after dialog is dismissed
-      nameController.dispose();
-      emailController.dispose();
+      // Always dispose the controller to prevent memory leaks
+      phoneController.dispose();
     }
   }
 
-  void _showMessage(String message, {bool isSuccess = false, bool isError = false}) {
-    if (isSuccess) {
-      ErrorHandler.showSuccessSnackBar(context, message);
-    } else if (isError) {
-      ErrorHandler.showErrorSnackBar(context, message);
-    } else {
-      ErrorHandler.showInfoSnackBar(context, message);
-    }
+
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -279,8 +214,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 children: [
                   ProfileCard(
-                    userName: _currentUserName.isNotEmpty ? _currentUserName : 'User',
-                    userEmail: _currentUserEmail.isNotEmpty ? _currentUserEmail : 'user@example.com',
+                    userName: widget.userName,
+                    userEmail: widget.userEmail,
                     customImage: _customImage,
                     avatarUrl: _avatarUrl,
                     onEditAvatar: _pickImage,
@@ -292,9 +227,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: ProfileDetails(
+                        phoneNumber: _phoneNumber.isNotEmpty ? _phoneNumber : null,
                         onEditProfile: _editProfile,
                         onResetPassword: () {
-                          _showMessage('Reset password functionality will redirect to Firebase Auth.');
+                          _showMessage('Reset password functionality not implemented.');
                         },
                       ),
                     ),

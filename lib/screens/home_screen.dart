@@ -129,38 +129,26 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedUserName = prefs.getString('userName') ?? '';
-    final savedUserEmail = prefs.getString('userEmail') ?? '';
+    final savedUserEmail = prefs.getString('userEmail');
     final savedCurrency = prefs.getString('selectedCurrency') ?? 'UGX';
 
     setState(() {
       _selectedCurrency = savedCurrency;
     });
 
-    debugPrint('Loading user data:');
-    debugPrint('Widget userName: ${widget.userName}');
-    debugPrint('Widget userEmail: ${widget.userEmail}');
-    debugPrint('Saved userName: $savedUserName');
-    debugPrint('Saved userEmail: $savedUserEmail');
-    
-    // Debug: Check current SharedPreferences state
-    final currentTransactionsString = prefs.getString('transactions');
-    debugPrint('=== LOAD USER DATA DEBUG ===');
-    debugPrint('Current transactions in SharedPreferences: $currentTransactionsString');
+    debugPrint('=== LOAD USER DATA ===');
+    debugPrint('Current user: ${widget.userEmail}');
+    debugPrint('Saved user: $savedUserEmail');
 
-    // Check if this is the same user (by email, which is more reliable)
-    if (savedUserEmail.isNotEmpty && 
-        (savedUserEmail == widget.userEmail || savedUserName == widget.userName)) {
-      // Same user - load existing transactions
-      debugPrint('Same user detected, loading transactions...');
-      await _loadTransactions();
-    } else if (savedUserEmail.isNotEmpty && savedUserEmail != widget.userEmail) {
-      // Different user - clear old data and reset
-      debugPrint('Different user detected, clearing old data...');
+    // Always save current user data
+    await prefs.setString('userName', widget.userName);
+    await prefs.setString('userEmail', widget.userEmail);
+    await prefs.setString('selectedCurrency', _selectedCurrency);
+
+    if (savedUserEmail != null && savedUserEmail != widget.userEmail) {
+      // Different user - clear old user's transactions and reset
+      debugPrint('Different user detected, clearing old data for: $savedUserEmail');
       await TransactionService.clearTransactions(savedUserEmail);
-      await prefs.setString('userName', widget.userName);
-      await prefs.setString('userEmail', widget.userEmail);
-      await prefs.setString('selectedCurrency', _selectedCurrency);
       setState(() {
         _transactions = [];
         _balance = 0;
@@ -168,20 +156,15 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _expenses = 0;
         _isAddButtonVisible = false;
       });
-    } else {
-      // First time user or no saved data - just load any existing transactions
-      debugPrint('First time user or no saved data, loading any existing transactions...');
-      await prefs.setString('userName', widget.userName);
-      await prefs.setString('userEmail', widget.userEmail);
-      await prefs.setString('selectedCurrency', _selectedCurrency);
-      await _loadTransactions(); // Load any existing transactions
     }
+
+    // Always load transactions for current user
+    debugPrint('Loading transactions for user: ${widget.userEmail}');
+    await _loadTransactions();
   }
 
   Future<void> _loadTransactions() async {
     final loadedTransactions = await TransactionService.loadTransactions(widget.userEmail);
-    debugPrint('Loaded ${loadedTransactions.length} transactions from storage');
-    
     setState(() {
       _transactions = loadedTransactions;
       _recalculateFinancials();
@@ -189,26 +172,15 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _isAddButtonVisible =
           _transactions.isNotEmpty; // Show FAB if transactions exist
     });
-    
-    debugPrint('Updated state with ${_transactions.length} transactions');
-    debugPrint('Balance: $_balance, Income: $_income, Expenses: $_expenses');
   }
 
   void _addTransaction(Transaction transaction) {
-    debugPrint('Adding transaction: ${transaction.description} - ${transaction.amount}');
-    
     setState(() {
       _transactions.add(transaction);
       _recalculateFinancials();
+      TransactionService.saveTransactions(_transactions, widget.userEmail);
       _updateWidgetOptions();
       _isAddButtonVisible = true; // Show FAB after the first transaction
-    });
-    
-    // Save transactions to storage
-    TransactionService.saveTransactions(_transactions, widget.userEmail).then((_) {
-      debugPrint('Successfully saved ${_transactions.length} transactions to storage');
-    }).catchError((error) {
-      debugPrint('Error saving transactions: $error');
     });
   }
 
@@ -301,16 +273,11 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     debugPrint('=== LOGOUT ===');
     debugPrint('Logging out user: ${widget.userEmail}');
     
-    // Clear only user session data - transactions are stored with user-specific keys
+    // Clear only session data, keep user data and transactions for persistence
     await prefs.remove('isLoggedIn');
-    await prefs.remove('userName');
-    await prefs.remove('userEmail');
-    await prefs.remove('userAvatar');
-    await prefs.remove('userId');
-    await prefs.remove('avatarUrl');
-    await prefs.remove('customImagePath');
+    // Keep userName, userEmail, and selectedCurrency for transaction persistence
     
-    debugPrint('Cleared user session data, transactions remain with user-specific keys');
+    debugPrint('Cleared session data, keeping user data for transaction persistence');
     
     if (!mounted) return;
     await Navigator.pushReplacement(
@@ -488,7 +455,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
 
     if (shouldClear == true) {
-      await TransactionService.clearTransactions(widget.userEmail);
+      await TransactionService.clearTransactions();
       _loadTransactions();
     }
   }

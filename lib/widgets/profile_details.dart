@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 class ProfileDetails extends StatelessWidget {
+  final String? phoneNumber; // Allow null values for phoneNumber
   final VoidCallback onEditProfile;
   final VoidCallback onResetPassword;
 
   const ProfileDetails({
     super.key,
+    required this.phoneNumber,
     required this.onEditProfile,
     required this.onResetPassword,
   });
@@ -29,6 +31,8 @@ class ProfileDetails extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // ...existing code...
+          const Divider(height: 30),
           _profileTile(
             icon: Icons.edit,
             iconColor: Colors.green,
@@ -81,4 +85,3 @@ class ProfileDetails extends StatelessWidget {
     );
   }
 }
-

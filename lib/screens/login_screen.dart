@@ -495,34 +495,12 @@ class _FooterActions extends StatelessWidget {
 
 Future<void> logout(BuildContext context) async {
   try {
+    // Clear SharedPreferences
     final prefs = await SharedPreferences.getInstance();
-    
-    // Save transactions and settings before clearing user data
-    final transactionsString = prefs.getString('transactions');
-    final selectedCurrency = prefs.getString('selectedCurrency') ?? 'UGX';
-    final notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
-    final selectedLanguage = prefs.getString('selectedLanguage') ?? 'English';
-    
-    // Clear only user session data, not transactions
-    await prefs.remove('isLoggedIn');
-    await prefs.remove('userName');
-    await prefs.remove('userEmail');
-    await prefs.remove('userAvatar');
-    await prefs.remove('userId');
-    await prefs.remove('avatarUrl');
-    await prefs.remove('customImagePath');
-    
-    // Restore non-user-specific data
-    if (transactionsString != null) {
-      await prefs.setString('transactions', transactionsString);
-    }
-    await prefs.setString('selectedCurrency', selectedCurrency);
-    await prefs.setBool('notificationsEnabled', notificationsEnabled);
-    await prefs.setString('selectedLanguage', selectedLanguage);
+    await prefs.clear();
 
-    debugPrint('=== LOGOUT (from login_screen) ===');
-    debugPrint('Preserved transactions and settings');
-    debugPrint('Cleared user session data only');
+    debugPrint('Saved UserName: ${prefs.getString('userName')}');
+    debugPrint('Saved UserEmail: ${prefs.getString('userEmail')}');
 
     // Sign out from Firebase
     final authService = AuthService();
