@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/profile_cards.dart';
 import '../widgets/profile_details.dart';
-import '../widgets/preferences_card.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String userName;
@@ -19,14 +17,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _phoneNumber = '';
   File? _customImage; // Store the selected image (mobile)
   String? _avatarUrl; // Store the avatar download URL
   bool _isLoading = false;
-  // Preferences state
-  bool _notificationsEnabled = true;
+  // Preferences state - only currency now
   String _selectedCurrency = 'USD';
-  String _selectedLanguage = 'English';
   final TextEditingController _nameController = TextEditingController();
 
   @override
@@ -39,7 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _phoneNumber = prefs.getString('phoneNumber') ?? 'Phone not set';
+      // Remove phone number loading as we're removing that field
       final customImagePath = prefs.getString('customImagePath');
       if (customImagePath != null) {
         _customImage = File(customImagePath);
@@ -47,158 +42,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Load avatar URL if exists
       _avatarUrl = prefs.getString('avatarUrl');
       _nameController.text = prefs.getString('username') ?? widget.userName;
-// Load user points
-      _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
+      // Load user preferences - only currency now
       _selectedCurrency = prefs.getString('selectedCurrency') ?? 'USD';
-      _selectedLanguage = prefs.getString('selectedLanguage') ?? 'English';
       _isLoading = false;
     });
   }
 
-  void _pickImage(dynamic imageData) async {
-    if (imageData != null) {
-      try {
-        final storageRef = FirebaseStorage.instance.ref().child('avatars/${widget.userEmail}.jpg');
-        if (imageData is File) {
-          // Limit file size to 1MB
-          final fileSize = await imageData.length();
-          if (fileSize > 1024 * 1024) {
-            _showMessage('Image size must be less than 1MB.');
-            return;
-          }
-          // Save locally
-          final appDir = await getApplicationDocumentsDirectory();
-          final destPath = '${appDir.path}/profile.jpg';
-          final destFile = File(destPath);
-          if (await destFile.exists()) {
-            await destFile.delete();
-          }
-          final savedImage = await imageData.copy(destPath);
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('customImagePath', savedImage.path);
-          setState(() {
-            _customImage = savedImage;
-          });
-          // Upload to Firebase Storage
-          await storageRef.putFile(savedImage);
-          final url = await storageRef.getDownloadURL();
-          setState(() {
-            _avatarUrl = url;
-          });
-          await prefs.setString('avatarUrl', url);
-        } else if (imageData is Uint8List) {
-          // Limit bytes size to 1MB
-          if (imageData.length > 1024 * 1024) {
-            _showMessage('Image size must be less than 1MB.');
-            return;
-          }
-          // Web: upload bytes to Firebase Storage
-          await storageRef.putData(imageData);
-          final url = await storageRef.getDownloadURL();
-          setState(() {
-            _avatarUrl = url;
-          });
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('avatarUrl', url);
-          _showMessage('Image uploaded successfully!');
-        } else {
-          _showMessage('Unsupported image type.');
-        }
-      } catch (e) {
-        debugPrint('Error saving/uploading image: $e');
-        _showMessage('Failed to save/upload image. Please check permissions and try again.');
+  void _pickImage(dynamic value) {
+    // For web/mobile compatibility, we'll handle Firebase Storage upload
+    try {
+      if (widget.userEmail.isNotEmpty) {
+        // For now, we'll just show a message that image upload is not implemented
+        _showMessage('Image upload feature will be implemented soon.');
+        return;
       }
-    } else {
-      _showMessage('No image selected.');
+    } catch (e) {
+      debugPrint('Error with image upload: $e');
+      _showMessage('Failed to upload image. Please try again.');
     }
   }
 
   Future<void> _editProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    final phoneController = TextEditingController(text: _phoneNumber);
 
     try {
       await showDialog(
         // ignore: use_build_context_synchronously
         context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Edit Profile'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: phoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'Phone Number',
-                      prefixIcon: Icon(Icons.phone),
-                    ),
-                    keyboardType: TextInputType.phone,
-                  ),
-                ],
+        builder: (context) => AlertDialog(
+          title: const Text('Edit Profile'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  prefixIcon: Icon(Icons.person),
+                ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final newName = _nameController.text.trim();
-                    final newPhoneNumber = phoneController.text.trim();
-
-                    if (newName.isEmpty) {
-                      _showMessage('Name cannot be empty');
-                      return;
-                    }
-
-                    if (newPhoneNumber.isEmpty) {
-                      _showMessage('Phone number cannot be empty');
-                      return;
-                    }
-
-                    if (!RegExp(r'^\d{10,}$').hasMatch(newPhoneNumber)) {
-                      _showMessage('Enter a valid phone number');
-                      return;
-                    }
-
-                    await prefs.setString('username', newName);
-                    await prefs.setString('phoneNumber', newPhoneNumber);
-
-                    setState(() {
-                      _nameController.text = newName;
-                      _phoneNumber = newPhoneNumber;
-                    });
-
-                    // ignore: use_build_context_synchronously
-                    Navigator.of(context).pop();
-                    _showMessage('Profile updated successfully!');
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
+              // Removed phone number field
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
             ),
+            ElevatedButton(
+              onPressed: () async {
+                final newName = _nameController.text.trim();
+
+                if (newName.isEmpty) {
+                  _showMessage('Name cannot be empty');
+                  return;
+                }
+
+                // Save to SharedPreferences first
+                await prefs.setString('username', newName);
+
+                // Update Firestore profile if user is authenticated
+                try {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .update({'name': newName});
+                    debugPrint('Updated user profile in Firestore');
+                  }
+                } catch (e) {
+                  debugPrint('Error updating Firestore profile: $e');
+                }
+
+                // Update local state
+                setState(() {
+                  _nameController.text = newName;
+                });
+
+                // ignore: use_build_context_synchronously
+                Navigator.of(context).pop();
+                _showMessage('Profile updated successfully! Changes will reflect across the app.');
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       );
-    } finally {
-      // Always dispose the controller to prevent memory leaks
-      phoneController.dispose();
+    } catch (e) {
+      debugPrint('Error in edit profile: $e');
     }
   }
 
-
-
   void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message))
+    );
   }
 
   @override
@@ -227,7 +166,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: ProfileDetails(
-                        phoneNumber: _phoneNumber.isNotEmpty ? _phoneNumber : null,
                         onEditProfile: _editProfile,
                         onResetPassword: () {
                           _showMessage('Reset password functionality not implemented.');
@@ -235,31 +173,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
-                  // PreferencesCard for currency, language, notifications
-                  PreferencesCard(
-                    notificationsEnabled: _notificationsEnabled,
-                    selectedCurrency: _selectedCurrency,
-                    selectedLanguage: _selectedLanguage,
-                    onNotificationsChanged: (value) async {
-                      setState(() => _notificationsEnabled = value);
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setBool('notificationsEnabled', value);
-                    },
-                    onCurrencyChanged: (value) async {
-                      if (value != null) {
-                        setState(() => _selectedCurrency = value);
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setString('selectedCurrency', value);
-                      }
-                    },
-                    onLanguageChanged: (value) async {
-                      if (value != null) {
-                        setState(() => _selectedLanguage = value);
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setString('selectedLanguage', value);
-                      }
-                    },
+                  // PreferencesCard for currency only
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Preferences',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            decoration: InputDecoration(
+                              labelText: 'Currency',
+                              prefixIcon: const Icon(Icons.monetization_on),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            value: _selectedCurrency,
+                            items: const ['USD', 'EUR', 'UGX'].map((item) {
+                              return DropdownMenuItem(
+                                value: item,
+                                child: Text(item),
+                              );
+                            }).toList(),
+                            onChanged: (value) async {
+                              if (value != null) {
+                                setState(() => _selectedCurrency = value);
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.setString('selectedCurrency', value);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                  // About Us Card at the bottom
                   const AboutCard(),
                 ],
               ),

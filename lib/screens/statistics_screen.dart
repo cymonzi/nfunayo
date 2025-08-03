@@ -7,6 +7,8 @@ import '../widgets/statistics_legend.dart';
 import '../utils/export_util.dart';
 import '../utils/currency_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/transaction_service.dart';
 
 class StatisticsScreen extends StatefulWidget {
   final double balance;
@@ -54,6 +56,30 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     _filteredExpenses = widget.expenses;
     _filteredBalance = widget.balance;
     _loadDisplayCurrency();
+    _refreshFirestoreData();
+  }
+  
+  // Refresh data from Firestore
+  Future<void> _refreshFirestoreData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        debugPrint('Refreshing transactions from Firestore for statistics screen');
+        final firestoreTransactions = await TransactionService.loadTransactions(user.email);
+        
+        if (mounted) {
+          setState(() {
+            // Update transactions list with Firestore data
+            widget.transactions.clear();
+            widget.transactions.addAll(firestoreTransactions);
+            // Recalculate with new data
+            _recalculateFinancials();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error refreshing Firestore data: $e');
+    }
   }
 
   Future<void> _loadDisplayCurrency() async {
@@ -400,6 +426,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     });
   }
 
+  // Helper to format currency values
+  String formatCurrency(double amount, String currencyCode) {
+    return CurrencyUtils.formatAmount(amount, currencyCode);
+  }
+
   // Bar Chart Section
   Widget _buildBarChart(List<Transaction> filteredTransactions) {
     final Map<String, double> categoryTotals = {};
@@ -415,14 +446,31 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ..sort((a, b) => _sortAscending ? a.value.compareTo(b.value) : b.value.compareTo(a.value));
 
     if (sortedEntries.isEmpty) {
-      return Center(child: Text('No data for selected period/category'));
+      return const Center(child: Text('No data for selected period/category'));
+    }
+
+    // Fix for bar chart index error - ensure we have at least one entry
+    if (sortedEntries.isEmpty) {
+      return const Center(child: Text('No transactions in selected period'));
     }
 
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
         maxY: sortedEntries.map((e) => e.value).reduce((a, b) => a > b ? a : b) * 1.2,
-        barTouchData: BarTouchData(enabled: true),
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            // Setting max content width to prevent overflow
+            maxContentWidth: 150,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '${sortedEntries[groupIndex].key}\n${formatCurrency(rod.toY, _displayCurrency)}',
+                const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              );
+            },
+          ),
+        ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(

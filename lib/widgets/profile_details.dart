@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
 class ProfileDetails extends StatelessWidget {
-  final String? phoneNumber; // Allow null values for phoneNumber
+  // Remove phoneNumber parameter
   final VoidCallback onEditProfile;
   final VoidCallback onResetPassword;
 
   const ProfileDetails({
     super.key,
-    required this.phoneNumber,
     required this.onEditProfile,
     required this.onResetPassword,
   });
