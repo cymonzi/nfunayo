@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // Generated file
 import 'screens/start_screen.dart';
@@ -11,8 +12,10 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'; // Fo
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set WebView platform for iOS
-  WebViewPlatform.instance = WebKitWebViewPlatform();
+  // Set WebView platform for iOS only when on iOS
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    WebViewPlatform.instance = WebKitWebViewPlatform();
+  }
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Center(

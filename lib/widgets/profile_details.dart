@@ -38,13 +38,7 @@ class ProfileDetails extends StatelessWidget {
             title: 'Edit Profile',
             onTap: onEditProfile,
           ),
-          const SizedBox(height: 10),
-          _profileTile(
-            icon: Icons.lock,
-            iconColor: Colors.red,
-            title: 'Reset Password',
-            onTap: onResetPassword,
-          ),
+      
         ],
       ),
     );
